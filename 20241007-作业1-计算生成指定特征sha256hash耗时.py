@@ -2,7 +2,7 @@ import hashlib
 import random
 import datetime
 
-# 作业1
+# 计算生成指定0数量开头的SHA256Hash结果需要花费的时间
 #计算耗时
 def calculate_time_cost(func,my_wechat_alias,length):
     """
