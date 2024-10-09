@@ -32,12 +32,12 @@ def calculate_head(my_wechat_alias,length):
             print('result_hash_value:',result_hash_value)
             return nonce
         nonce += 1
-        
-length = 4
-my_wechat_alias = 'chenxiaolin'
-calculate_time_cost(calculate_head,my_wechat_alias,length)
-length = 5
-calculate_time_cost(calculate_head,my_wechat_alias,length)
+if __name__ == '__main__':
+    length = 4
+    my_wechat_alias = 'chenxiaolin'
+    calculate_time_cost(calculate_head,my_wechat_alias,length)
+    length = 5
+    calculate_time_cost(calculate_head,my_wechat_alias,length)
 
 '''
 本机计算结果
