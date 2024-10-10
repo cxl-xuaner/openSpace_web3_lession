@@ -1,5 +1,4 @@
 # 作业2
-# 题目#2
 # 实践非对称加密 RSA(编程语言不限)
 # 1.先生成一个公私钥对
 # 2.用私钥对符合 POW 4个开头的哈希值的“昵称 +nonce”进行私钥签名
@@ -13,7 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.exceptions import InvalidSignature
 
 # 计算耗时
-def calculate_time_cost(func,my_wechat_alias,length):
+def calculate_time_cost(func,*args):
     """
     计算函数`func`的耗时。
     :param func: 要测量耗时的函数
@@ -22,14 +21,16 @@ def calculate_time_cost(func,my_wechat_alias,length):
     print("*" * 50, "开始执行", "*" * 50)
     print(f'计算{length}个0开头hash耗时：')
     start_time = datetime.datetime.now()
-    func(my_wechat_alias,length)
+    func(args)
     end_time = datetime.datetime.now()
     elapsed_time = end_time - start_time
     cost_seconds = elapsed_time.total_seconds()
     print("*" * 50, "执行完毕,累计耗时%s秒" % cost_seconds, "*" * 50)
 
 # 利用指定消息获取指定0数量开头长度的Nonce
-def calculate_head(my_wechat_alias,length):
+def calculate_head(args):
+    my_wechat_alias = args[0]
+    length = args[1]
     sha256_hash = hashlib.sha256()
     nonce = 0
     while True:
