@@ -20,7 +20,7 @@ contract Bank {
         _;
     }
     receive() external payable {
-        
+        updateInfo();
     }
     // top3排序
     function _order(address sender) internal {
@@ -33,28 +33,24 @@ contract Bank {
                 rich3[i]=sender;
                 break;
             }
-
         }
-
     }
-
-    //存入资金
-    function deposit() public payable {
-        if(account[msg.sender] == 0){
-            account[msg.sender] = msg.value;
-        }else{
-            account[msg.sender] += msg.value;
-        }
+    //更新余额和排序入口函数
+    function updateInfo() internal {
+        account[msg.sender] += msg.value;
         _order(msg.sender); //存款金额前三地址
     }
-
+    //存入资金
+    function deposit() public payable {
+        updateInfo();   
+    }
     //提取资金
     function withdraw(uint amount) public admin{
         uint balance = address(this).balance;
         require(amount<=balance,"Insufficient balance");
         payable(msg.sender).transfer(amount);
-    
     } 
+    
 
 
 }
