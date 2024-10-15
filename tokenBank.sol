@@ -78,10 +78,12 @@ contract TokenBank {
 
     function deposit(address _erc20, uint amount) external returns(bool){
         require(BaseERC20(_erc20).balanceOf(msg.sender) >= amount, "deposit amount exceeds balance");
-        BaseERC20(_erc20).transfer(address(this), amount);
-        balance[msg.sender] += amount;
+        bool success = BaseERC20(_erc20).transferFrom(msg.sender, address(this), amount);
+        require(success, "transferFrom Failed");
+        balances[msg.sender] += amount;
         return true;
     }
+
 
     function withdraw(address _erc20, uint amount) external returns(bool){
         require(balance[msg.sender]>=amount, "withdraw amount exceeds balance");
