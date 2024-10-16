@@ -128,9 +128,14 @@ contract TokenBank{
 // 继承 TokenBank 编写 TokenBankV2，支持存入扩展的 ERC20 Token，用户可以直接调用 transferWithCallback 将 扩展的 ERC20 Token 存入到 TokenBankV2 中。
 // （备注：TokenBankV2 需要实现 tokensReceived 来实现存款记录工作）
 contract TokenBankV2 is TokenBank{
+    BaseERC20 public token;
     //TokenBankV2 继承自 TokenBank，所以在 TokenBankV2 的构造函数中，必须显式调用父合约的构造函数 TokenBank(_tokenAddress)，并传递 tokenAddress
-    constructor (address _tokenAddress) TokenBank(_tokenAddress){}
+    constructor (address _tokenAddress) TokenBank(_tokenAddress){
+        token = BaseERC20(_tokenAddress);
+    }
     function tokensReceived(address operator, address from, address to, uint _value, bytes calldata data) external returns (bool) {
+        // tokensReceived 中需要添加判断: 
+        require(msg.sender == address(token) , "invald token sender");  
         deposited[from] += _value;
         return true;
     }
