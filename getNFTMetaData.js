@@ -6,7 +6,6 @@ import {mainnet} from 'viem/chains';
 // 读取指定NFT的元数据：tokenURI(uint256)returns(string)
 // 要求直接提交实现该功能的 TS 文件内容，或者 Github 文件链接
 
-
 const publicClient = createPublicClient({
     chain:mainnet,
     transport:http()
