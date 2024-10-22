@@ -8,12 +8,9 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "hardhat/console.sol";
-
 interface ITokenReceiver {
-    function tokensReceived(
-        address operator,
-        address from, 
-        address to, 
+    function tokensReceived( 
+        address buyer, 
         uint256 value, 
         bytes calldata data
     ) external returns(bool);
@@ -88,20 +85,48 @@ contract BaseERC20{
         return _addr.code.length > 0;
     }
 
-    //带hook的transfer
-    function transferWithCallback(address _to, uint256 _value) public returns (bool success) {
-        // write your code here
-        success = transfer(_to, _value);
-        if(success && isContract(_to)){
-            bool rv = ITokenReceiver(_to).tokensReceived(msg.sender, msg.sender, _to, _value, "");
+    //带hook的transfer(EOA调用）
+    //问题1： 能否使用transferFrom
+    //问题2：ITokenReceiver(_to).tokensReceived(msg.sender, msg.sender, _to, _value, data)调用者为什么是token合约而不是EOA账户
+    // 0xcCbE7717e986CCb546E50d16143757Aff9CEd4e4
+    //实现NTF购买
+    // function tokensReceived(address from, address to, uint value, bytes calldata data) public returns (bool){
+    // (address nftAddress, uint tokenId) = abi.decode(data, (address, uint));
+    
+    function transferWithCallback(address nftMarketAddress, address nftAddress, uint tokenId, uint256 value) public returns (bool success) {
+        uint _value = value * 10 ** uint(decimals);
+        success = transfer(nftMarketAddress, _value); 
+        if(success && isContract(nftMarketAddress)){    
+            bytes memory data = abi.encode(nftAddress, tokenId);
+            bool rv = ITokenReceiver(nftMarketAddress).tokensReceived(msg.sender, value, data);
             require(rv, "no tokensReceived");
         }
         return success;
     }
 
-    
 
 }
+
+// TestSender合约地址：0x96Ac225AcfEeeB7628DF5d46Ae60ff23437a1605
+
+// contract TestSender {
+//     BaseERC20 public payToken;
+//     constructor(address tokenAddress){
+//         payToken = BaseERC20(tokenAddress);
+
+//     }
+
+//     function tokensReceived(address operatotr, address buyer, address to, uint value, bytes calldata data) public returns (bool){
+//         require(msg.sender == address(payToken) , "invald payToken sender");  
+//         return true;
+//     }
+//     function test(uint value) public returns (bool){
+//         bytes memory data = abi.encode(msg.sender);
+//         payToken.transferWithCallback(address(this), value, data);
+
+//     }
+// }
+
 
 contract MyNFT is ERC721URIStorage, Ownable {
     uint256 public tokenCounter;
@@ -149,7 +174,7 @@ contract NFTMarket is IERC721Receiver  {
         require(listed[nftAddress][tokenId]==0 || listedOwner[nftAddress][tokenId]==address(0), "already listed");
         // 4、将用户 NFT转移到NFT市场
         IERC721(nftAddress).safeTransferFrom(msg.sender, address(this), tokenId, "");
-        // 5、更新listed 和 listedOwner信息
+        // 5、更新listed 和listedOwner信息
         listed[nftAddress][tokenId] = priceETH;
         listedOwner[nftAddress][tokenId] = msg.sender;
         emit _list(msg.sender, address(this), tokenId);
@@ -158,7 +183,7 @@ contract NFTMarket is IERC721Receiver  {
     }
 
     //普通的购买 NFT 功能，用户转入所定价的 ETH 数量，获得对应的 NFT
-    function buyNFTByETH(address nftAddress, uint tokenId) external payable returns (bool){
+    function buyNFTbyETH(address nftAddress, uint tokenId) external payable returns (bool){
         // 1、查询NFT的价格
         uint priceETH = listed[nftAddress][tokenId];
         // 2、判断输入的价格是否满足要求
@@ -179,6 +204,7 @@ contract NFTMarket is IERC721Receiver  {
         return true;
 
     }
+    // 100000000000000000000
     // 0xB302F922B24420f3A3048ddDC4E2761CE37Ea098  NFTMarket
     // 0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8  NFT
    //普通的购买 NFT 功能，用户转入所定价的 token 数量，获得对应的 NFT
@@ -195,11 +221,7 @@ contract NFTMarket is IERC721Receiver  {
         require(_value >=priceToken, "Insufficient value");
         // 3、将token转给卖家
         address _owner = listedOwner[nftAddress][tokenId];
-
-        console.log("before transfer token");
         bool successPayToken = payToken.transferFrom(msg.sender, _owner, priceToken);
-        console.log("before transfer nft");
-        
         require(successPayToken, "pay token failed");
         // 4、将NFT发送给买家
         IERC721(nftAddress).safeTransferFrom(address(this), msg.sender, tokenId, "");
@@ -211,6 +233,36 @@ contract NFTMarket is IERC721Receiver  {
         return true;
     }
 
+
+    // //钩子函数
+    // // to is NFTMarket
+    // tokensReceived(msg.sender, _to, _value, data)
+    // ITokenReceiver(_to).tokensReceived(NFTAddress, tokenId, _value, data)
+    // tokensReceived(NFTAddress, tokenId, value, data);
+    function tokensReceived(address buyer,  uint value, bytes calldata data) public returns (bool){
+        (address nftAddress, uint tokenId) = abi.decode(data, (address, uint));
+        require(msg.sender == address(payToken) , "invald payToken sender");  
+        // 1、数值单位转换和查询NFT的价格
+        uint8 _decimals = payToken.decimals();
+        uint priceToken = listed[nftAddress][tokenId] * 10 ** uint(_decimals);
+        uint _value = value * 10 ** uint(_decimals);
+        // 2、判断购买者是否有足够的Token
+        // uint balance = token.balanceOf(msg.sender); //单位是wei
+        require(_value >= priceToken, "Insufficient value");
+        // 3、将token转给卖家
+        address _owner = listedOwner[nftAddress][tokenId];
+        // 从NFT市场转给_owner
+        bool successToOwner = payToken.transfer(_owner, priceToken);
+        require(successToOwner,"tranfer failed to _owner");
+        IERC721(nftAddress).safeTransferFrom(address(this), buyer, tokenId, "");
+        // 5、更新listed 和 listedOwner信息
+        delete listed[nftAddress][tokenId];
+        delete listedOwner[nftAddress][tokenId];
+
+        emit _transfer(address(this), buyer, tokenId);
+        return true;
+
+    }
 
 
     // 实现 onERC721Received 方法
